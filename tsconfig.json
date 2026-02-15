@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+       "target": "es2016",
+       "module": "commonjs",
+       "lib": ["es6", "dom"],
+       "outDir": "./dist",
+       "rootDir": "./src",
+       "strict": false,
+       "esModuleInterop": true,
+       "emitDecoratorMetadata": true,
+       "experimentalDecorators": true,
+       "useDefineForClassFields": false,
+       "noEmit": true,
+       "allowImportingTsExtensions": true
+    }
+ }
