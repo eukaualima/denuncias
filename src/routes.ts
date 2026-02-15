@@ -2,11 +2,13 @@ import { Router, Request, Response } from "express";
 import { AppDataSource } from "./datasource.ts";
 import { Categoria } from "./entity/Categoria";
 import { Denuncia } from "./entity/Denuncia.ts";
+import { Historico } from "./entity/Historico.ts";
 
 const router = Router();
 
 const categoriaRepo = AppDataSource.getRepository(Categoria);
 const denunciaRepo = AppDataSource.getRepository(Denuncia);
+const historicoRepo = AppDataSource.getRepository(Historico);
 
 // Rota padrão
 router.get("/", (req: Request, res: Response) => {
@@ -113,18 +115,15 @@ router.get("/denuncias/:id", async (req: Request, res: Response) => {
 });
 
 router.post("/denuncias", async (req: Request, res: Response) => {
-  const { titulo, descricao, categoriaId, local, prioridade, status } =
-    req.body;
+  const { titulo, descricao, denunciaId, local, prioridade, status } = req.body;
 
   try {
-    const categoriaEncontrada = await categoriaRepo.findOneBy({
-      id: categoriaId,
+    const denunciaEncontrada = await denunciaRepo.findOneBy({
+      id: denunciaId,
     });
 
-    if (!categoriaEncontrada) {
-      return res
-        .status(404)
-        .json({ message: "Categoria da denúncia não encontrada." });
+    if (!denunciaEncontrada) {
+      return res.status(404).json({ message: "Denúncia não encontrada." });
     }
 
     const novaDenuncia = denunciaRepo.create({
@@ -133,7 +132,7 @@ router.post("/denuncias", async (req: Request, res: Response) => {
       local,
       prioridade,
       status,
-      categoria: categoriaEncontrada,
+      denuncia: denunciaEncontrada,
     });
 
     await denunciaRepo.save(novaDenuncia);
@@ -222,6 +221,29 @@ router.delete("/denuncias/:id", async (req: Request, res: Response) => {
   } else {
     res.status(404).json({ message: "Denúncia não encontrada." });
   }
+});
+
+router.post("/denuncias/:id/historico", async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  const { comentario, responsavel } = req.body;
+
+  const denuncia = await denunciaRepo.findOneBy({ id });
+
+  if (!denuncia) {
+    return res.status(404).json({ message: "Denúncia não encontrada" });
+  }
+
+  const novoHistorico = historicoRepo.create({
+    comentario,
+    responsavel,
+    denuncia: denuncia,
+  });
+
+  await historicoRepo.save(novoHistorico);
+
+  res
+    .status(201)
+    .json({ message: "Histórico adicionado!", historico: novoHistorico });
 });
 
 export { router };

@@ -1,5 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  ManyToOne,
+} from "typeorm";
 import { Categoria } from "./Categoria";
+import { Historico } from "./Historico";
 
 export enum Prioridade {
   BAIXA = "baixa",
@@ -37,4 +44,10 @@ export class Denuncia {
 
   @Column({ type: "simple-enum", enum: Status, default: Status.ABERTA })
   status: string;
+
+  @Column({ type: "varchar", nullable: true })
+  registrante: string;
+
+  @OneToMany(() => Historico, (historico) => historico.denuncia)
+  historicos: Historico[];
 }
