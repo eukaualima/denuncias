@@ -16,7 +16,7 @@ router.get("/", (req: Request, res: Response) => {
 });
 
 // CATEGORIAS
-router.get("/categorias", async (req: Request, res: Response) => {
+router.get("/categories", async (req: Request, res: Response) => {
   const categorias = await categoriaRepo.find();
 
   if (categorias.length < 1) {
@@ -26,7 +26,7 @@ router.get("/categorias", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/categorias/:id", async (req: Request, res: Response) => {
+router.get("/categories/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
 
   const categoria = await categoriaRepo.findOneBy({ id: id });
@@ -38,7 +38,7 @@ router.get("/categorias/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/categorias", async (req: Request, res: Response) => {
+router.post("/categories", async (req: Request, res: Response) => {
   const nome = req.body.nome;
   const descricao = req.body.descricao;
 
@@ -55,7 +55,7 @@ router.post("/categorias", async (req: Request, res: Response) => {
   });
 });
 
-router.put("/categorias/:id", async (req: Request, res: Response) => {
+router.put("/categories/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const nome = req.body.nome;
   const descricao = req.body.descricao;
@@ -77,7 +77,7 @@ router.put("/categorias/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/categorias/:id", async (req: Request, res: Response) => {
+router.delete("/categories/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
 
   if (categoriaRepo.findOneBy({ id: id })) {
@@ -92,17 +92,30 @@ router.delete("/categorias/:id", async (req: Request, res: Response) => {
 });
 
 // DENÚNCIA
-router.get("/denuncias", async (req: Request, res: Response) => {
-  const denuncias = await denunciaRepo.find();
+router.get("/reports", async (req: Request, res: Response) => {
+  const { categoriaId, status, prioridade } = req.query;
 
-  if (denuncias.length < 1) {
-    res.status(404).json({ message: "Não existem denúncias cadastradas." });
-  } else {
-    res.status(200).json({ denuncias });
+  const where: any = {};
+
+  if (status) {
+    where.status = status;
   }
+  if (prioridade) {
+    where.prioridade = prioridade;
+  }
+  if (categoriaId) {
+    where.categoria = { id: Number(categoriaId) };
+  }
+
+  const denuncias = await denunciaRepo.find({
+    where: where,
+    relations: ["categoria"],
+  });
+
+  res.status(200).json({ denuncias });
 });
 
-router.get("/denuncias/:id", async (req: Request, res: Response) => {
+router.get("/reports/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
 
   const denuncia = await denunciaRepo.findOneBy({ id: id });
@@ -114,16 +127,16 @@ router.get("/denuncias/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/denuncias", async (req: Request, res: Response) => {
-  const { titulo, descricao, denunciaId, local, prioridade, status } = req.body;
+router.post("/reports", async (req: Request, res: Response) => {
+  const { titulo, descricao, local, prioridade, status, categoriaId } = req.body;
 
   try {
-    const denunciaEncontrada = await denunciaRepo.findOneBy({
-      id: denunciaId,
+    const categoriaEncontrada = await categoriaRepo.findOneBy({
+      id: categoriaId,
     });
 
-    if (!denunciaEncontrada) {
-      return res.status(404).json({ message: "Denúncia não encontrada." });
+    if (!categoriaEncontrada) {
+      return res.status(404).json({ message: "Categoria não encontrada." });
     }
 
     const novaDenuncia = denunciaRepo.create({
@@ -132,7 +145,7 @@ router.post("/denuncias", async (req: Request, res: Response) => {
       local,
       prioridade,
       status,
-      denuncia: denunciaEncontrada,
+      categoria: categoriaEncontrada,
     });
 
     await denunciaRepo.save(novaDenuncia);
@@ -147,9 +160,9 @@ router.post("/denuncias", async (req: Request, res: Response) => {
   }
 });
 
-router.put("/denuncias/:id", async (req: Request, res: Response) => {
+router.put("/reports/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
-  const { titulo, descricao, categoriaId, local, prioridade, status } =
+  const { titulo, descricao, categoriaId, local, prioridade, status, registrante } =
     req.body;
 
   const denunciaEncontrada = await denunciaRepo.findOneBy({
@@ -168,6 +181,7 @@ router.put("/denuncias/:id", async (req: Request, res: Response) => {
         categoria: categoriaEncontrada,
         local,
         prioridade,
+        registrante,
         status,
       });
 
@@ -185,31 +199,44 @@ router.put("/denuncias/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/denuncias/:id/status", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
-  const { status } = req.body;
+router.get("/reports", async (req: Request, res: Response) => {
+  const { categoriaId, status, prioridade, pagina, porPagina } = req.query;
 
-  const denunciaEncontrada = await denunciaRepo.findOneBy({
-    id: id,
-  });
+  const numeroPagina = parseInt(pagina as string) || 1;
+  const itensPagina = parseInt(porPagina as string) || 10;
+  
+  const where: any = {};
 
-  if (denunciaEncontrada) {
-    await denunciaRepo.update(id, {
-      status,
+  if (status) {
+    where.status = status;
+  }
+  if (prioridade) {
+    where.prioridade = prioridade; 
+  }
+  if (categoriaId) {
+    where.categoria = { id: Number(categoriaId) };
+  }
+
+  try {
+    const [denuncias, total] = await denunciaRepo.findAndCount({
+      where: where,
+      relations: ["categoria"], 
+      skip: (numeroPagina - 1) * itensPagina,
+      take: itensPagina,
+      order: { id: "DESC" }
     });
-
-    const denuncia = await denunciaRepo.findOneBy({ id: id });
 
     res.status(200).json({
-      message: "Status da denúncia atualizado com sucesso!",
-      denuncia: denuncia,
+      page: numeroPagina,
+      perPage: itensPagina,
+      total: total,
+      data: denuncias
     });
-  } else {
-    res.status(404).json({ message: "Categoria não encontrada." });
+  } catch (error) {
+    res.status(500).json({ message: "Erro ao listar denúncias" });
   }
 });
-
-router.delete("/denuncias/:id", async (req: Request, res: Response) => {
+router.delete("/reports/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
 
   if (await denunciaRepo.findOneBy({ id: id })) {
@@ -223,7 +250,7 @@ router.delete("/denuncias/:id", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/denuncias/:id/historico", async (req: Request, res: Response) => {
+router.post("/reports/:id/updates", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const { comentario, responsavel } = req.body;
 
